@@ -9,8 +9,6 @@ import random
 #import csv
 import scipy.sparse
 
-from config import Config
-
 
 def sparse_mat_reader(file_name):    
     data = scipy.sparse.load_npz(file_name)
@@ -194,6 +192,8 @@ class PrepareDataloader():
 
 
 if __name__ == "__main__":
+    from config import Config
+
     config = Config()
     rna_data = Dataloader(True, config.rna_paths[0], config.rna_labels[0])
     print('rna data:', rna_data.input_size, rna_data.input_size_protein, len(rna_data.data))

@@ -21,10 +21,23 @@ class Config(object):
 			self.lr_decay_epoch = 20
 			self.epochs_stage1 = 20
 			self.epochs_stage3 = 20
-			self.p = 0.8
+			self.p = 0.8 # top 80% matches between source and target domain
 			self.embedding_size = 64
 			self.momentum = 0.9
+
 			self.center_weight = 1
+			self.orth_weight = 1
+			self.var_weight = 1
+			self.reg_weight = 1
+			self.mmd_weight = 0 # maximum mean discrepancy
+			self.sim_weight = 1
+			self.mmd_kernel_num = 5
+
 			self.checkpoint = ''
 			self.num_threads = 1
+			self.knn_neighbors = 30 # default in paper
 			self.seed = 1
+
+			# Additional model configs
+			self.encoder_activation = "sigmoid"
+			self.encoder_layers = 1

@@ -1,4 +1,6 @@
 import torch
+import numpy as np
+import random
 import os
 from datetime import datetime
 
@@ -7,15 +9,23 @@ from util.trainingprocess_stage1 import TrainingProcessStage1
 from util.trainingprocess_stage3 import TrainingProcessStage3
 from util.knn import KNN
 
-def main():    
-    # initialization 
-    config = Config()    
+def set_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    
+def main(config): 
     
     # hardware constraint for speed test
     torch.set_num_threads(config.num_threads)
+    torch.autograd.set_detect_anomaly(True)
     
     if config.seed != None:
-        torch.manual_seed(config.seed)
+       set_seed(config.seed)
         
     os.environ['OMP_NUM_THREADS'] = '1'
     
@@ -36,7 +46,7 @@ def main():
     
     # KNN
     print('KNN')
-    KNN(config, neighbors = 30, knn_rna_samples=20000)
+    KNN(config, neighbors = config.knn_neighbors, knn_rna_samples=20000)
     print('KNN finished: ', datetime.now().strftime('%H:%M:%S'))
     
 
@@ -53,8 +63,12 @@ def main():
     
     # KNN
     print('KNN stage3')
-    KNN(config, neighbors = 30, knn_rna_samples=20000)
+    KNN(config, neighbors = config.knn_neighbors, knn_rna_samples=20000)
     print('KNN finished: ', datetime.now().strftime('%H:%M:%S'))
     
 if __name__ == "__main__":
-    main()
+    config = Config()
+    config.mmd_weight = 0
+    config.sim_weight = 1
+    config.encoder_layers = 1
+    main(config)

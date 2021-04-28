@@ -28,12 +28,16 @@ class TrainingProcessStage1():
             self.training_iteration += len(atac_loader)
         
         # initialize dataset        
-        self.model_encoder = torch.nn.DataParallel(Net_encoder(config.input_size).cuda())
+        self.model_encoder = torch.nn.DataParallel(Net_encoder(
+            config.input_size, config.encoder_layers, config.encoder_activation).cuda())
         self.model_cell = torch.nn.DataParallel(Net_cell(config.number_of_class).cuda())
+
+        print("Encoder architecture: ")
+        print(self.model_encoder)
                 
         # initialize criterion (loss)
         self.criterion_cell = CellLoss()
-        self.criterion_encoding = EncodingLoss(dim=64, p=config.p)
+        self.criterion_encoding = EncodingLoss(dim=64, p=config.p, config = config)
         self.l1_regular = L1regularization()
         
         # initialize optimizer (sgd/momemtum/weight decay)
@@ -84,7 +88,7 @@ class TrainingProcessStage1():
             rna_cell_predictions = []
             rna_labels = []
             for iter_rna_loader in iter_rna_loaders:
-                rna_data, rna_label = next(iter_rna_loader)    
+                rna_data, rna_label = next(iter_rna_loader) 
                 # prepare data
                 rna_data, rna_label = prepare_input([rna_data, rna_label])
                 # model forward
@@ -100,7 +104,7 @@ class TrainingProcessStage1():
             for iter_atac_loader in iter_atac_loaders:
                 atac_data = next(iter_atac_loader)    
                 # prepare data
-                atac_data = prepare_input([atac_data])[0]
+                atac_data = prepare_input([atac_data])[0] # no label here, we predict the label for atac data
                 # model forward
                 atac_embedding = self.model_encoder(atac_data)
                 atac_cell_prediction = self.model_cell(atac_embedding)
@@ -108,13 +112,13 @@ class TrainingProcessStage1():
                 atac_embeddings.append(atac_embedding)
                 atac_cell_predictions.append(atac_cell_prediction)
             
+            # caculate loss
+            cell_loss = 0
+            for i in range(len(rna_cell_predictions)):
+                cell_loss = cell_loss + self.criterion_cell(rna_cell_predictions[i], rna_labels[i])
+            cell_loss = cell_loss / len(rna_cell_predictions)
             
-            # caculate loss  
-            cell_loss = self.criterion_cell(rna_cell_predictions[0], rna_labels[0])
-            for i in range(1, len(rna_cell_predictions)):
-                cell_loss += self.criterion_cell(rna_cell_predictions[i], rna_labels[i])
-            cell_loss = cell_loss/len(rna_cell_predictions)
-            
+            """
             encoding_loss = self.criterion_encoding(atac_embeddings, rna_embeddings)
             regularization_loss_encoder = self.l1_regular(self.model_encoder)            
             
@@ -124,14 +128,27 @@ class TrainingProcessStage1():
             cell_loss.backward(retain_graph=True)
             encoding_loss.backward(retain_graph=True)            
             self.optimizer_encoder.step()
-              
             
             regularization_loss_cell = self.l1_regular(self.model_cell)
+            
             # update cell weights
             self.optimizer_cell.zero_grad()
             cell_loss.backward(retain_graph=True)
             regularization_loss_cell.backward(retain_graph=True) 
             self.optimizer_cell.step()
+            """
+            
+            encoding_loss = self.criterion_encoding(atac_embeddings, rna_embeddings)
+            regularization_loss_encoder = self.l1_regular(self.model_encoder)  
+            regularization_loss_cell = self.l1_regular(self.model_cell)
+            total_loss = cell_loss + encoding_loss + regularization_loss_encoder + regularization_loss_cell
+            
+            self.optimizer_encoder.zero_grad()  
+            self.optimizer_cell.zero_grad()
+            total_loss.backward()
+            self.optimizer_encoder.step()
+            self.optimizer_cell.step()
+            
 
             # print log
             total_encoding_loss += encoding_loss.data.item()
