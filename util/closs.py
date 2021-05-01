@@ -117,6 +117,8 @@ class EncodingLoss(nn.Module):
                                 
 
         atac_reduction_loss /= len(atac_embeddings)
+        total_reduction_loss = atac_reduction_loss + rna_reduction_loss
+        total_reduction_loss *= self.config.reduction_weight
         
         # cosine similarity loss    
         sim_loss = 0   
@@ -126,7 +128,7 @@ class EncodingLoss(nn.Module):
                 int(atac_embeddings[i].shape[0] * self.p))
             sim_loss += torch.mean(top_k_sim[0])
         
-        sim_loss = sim_loss/len(atac_embeddings)
+        sim_loss = -sim_loss/len(atac_embeddings) # minimize negative cos = maximize sim
         sim_loss *= self.config.sim_weight
         
         # Maximum mean discrepancy
@@ -135,7 +137,7 @@ class EncodingLoss(nn.Module):
             mmd_loss += self.mmd_loss(rna_embeddings[i], atac_embeddings[i])
         mmd_loss *= self.config.mmd_weight    
 
-        loss = rna_reduction_loss + atac_reduction_loss - sim_loss + mmd_loss
+        loss = total_reduction_loss + sim_loss + mmd_loss
         #loss = rna_reduction_loss + atac_reduction_loss + mmd_loss
         #loss = rna_reduction_loss + atac_reduction_loss
 

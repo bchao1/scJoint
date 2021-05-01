@@ -14,6 +14,8 @@ class Config(object):
 			self.rna_protein_paths = ['data/citeseq_control_adt.npz']
 			self.atac_protein_paths = ['data/asapseq_control_adt.npz']
 			
+			self.normalize_data = False
+			self.binarize = True
 			# Training config			
 			self.batch_size = 256
 			self.lr_stage1 = 0.01
@@ -31,6 +33,7 @@ class Config(object):
 			self.reg_weight = 1
 			self.mmd_weight = 0 # maximum mean discrepancy
 			self.sim_weight = 1
+			self.reduction_weight = 1
 			self.mmd_kernel_num = 5
 
 			self.checkpoint = ''
@@ -39,5 +42,5 @@ class Config(object):
 			self.seed = 1
 
 			# Additional model configs
-			self.encoder_activation = "sigmoid"
+			self.encoder_activation = "none"
 			self.encoder_layers = 1

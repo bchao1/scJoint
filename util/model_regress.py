@@ -6,6 +6,8 @@ def get_activation(activation):
         return nn.ReLU()
     elif activation == "sigmoid":
         return nn.Sigmoid()
+    elif activation == "none":
+        return nn.Identity()
     else:
         raise ValueError("Activation \"{}\" currently not supported!".format(activation))
 

@@ -68,7 +68,11 @@ def main(config):
     
 if __name__ == "__main__":
     config = Config()
-    config.mmd_weight = 0
-    config.sim_weight = 1
+    config.mmd_weight = 1
+    config.sim_weight = 0
+    config.reduction_weight = 0
+    config.normalize_data = False
+    config.binarize = True
     config.encoder_layers = 1
+    config.encoder_activation = "none"
     main(config)

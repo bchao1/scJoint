@@ -11,7 +11,15 @@ import scipy.sparse
 
 from config import Config
 
-
+def normalize(data):    
+    data = data.todense()
+    data[data == 0] = np.nan
+    mean = np.nanmean(data, 0)
+    std = np.nanstd(data, 0)
+    data = (data - mean) / std
+    data = np.nan_to_num(data)
+    return scipy.sparse.csr_matrix(data)
+    
 def sparse_mat_reader(file_name):    
     data = scipy.sparse.load_npz(file_name)
     print('Read db:', file_name, ' shape:', data.shape)
@@ -42,16 +50,21 @@ def read_from_file(data_path, label_path = None, protien_path = None):
 
 
 class Dataloader(data.Dataset):
-    def __init__(self, train = True, data_path = None, label_path = None, protien_path = None):
+    def __init__(self, train = True, data_path = None, label_path = None, protien_path = None, config = None):
         self.train = train
         self.input_size, self.sample_num, self.input_size_protein, self.data, self.labels, self.proteins = read_from_file(data_path, label_path, protien_path)
+        self.config = config
+        if config.normalize_data:
+            self.data = normalize(self.data)
+            self.proteins = normalize(self.proteins)
 
     def __getitem__(self, index):
         if self.train:
             # get atac data
             rand_idx = random.randint(0, self.sample_num - 1)
-            sample = np.array(self.data[rand_idx].todense())
-            in_data = (sample>0).astype(np.float)  # binarize data
+            in_data = np.array(self.data[rand_idx].todense())
+            if self.config.binarize:
+                in_data = (in_data>0).astype(np.float)  # binarize data
             
             if self.proteins is not None:
                 sample_protein = np.array(self.proteins[rand_idx].todense())
@@ -62,8 +75,9 @@ class Dataloader(data.Dataset):
             return in_data, in_label
 
         else:
-            sample = np.array(self.data[index].todense())
-            in_data = (sample>0).astype(np.float)  # binarize data
+            in_data = np.array(self.data[index].todense())
+            if self.config.binarize:
+                in_data = (in_data>0).astype(np.float)  # binarize data
 
             if self.proteins is not None:
                 sample_protein = np.array(self.proteins[index].todense()) 
@@ -79,16 +93,21 @@ class Dataloader(data.Dataset):
                 
               
 class DataloaderWithoutLabel(data.Dataset):
-    def __init__(self, train = True, data_path = None, label_path = None, protien_path = None):
+    def __init__(self, train = True, data_path = None, label_path = None, protien_path = None, config = None):
         self.train = train
         self.input_size, self.sample_num, self.input_size_protein, self.data, self.labels, self.proteins = read_from_file(data_path, label_path, protien_path)
+        self.config = config
+        if config.normalize_data:
+            self.data = normalize(self.data)
+            self.proteins = normalize(self.proteins)
 
     def __getitem__(self, index):
         if self.train:
             # get atac data
             rand_idx = random.randint(0, self.sample_num - 1)
-            sample = np.array(self.data[rand_idx].todense())
-            in_data = (sample>0).astype(np.float)  # binarize data
+            in_data = np.array(self.data[rand_idx].todense())
+            if self.config.binarize:
+                in_data = (in_data>0).astype(np.float)  # binarize data
             if self.proteins is not None:
                 sample_protein = np.array(self.proteins[rand_idx].todense())
                 in_data = np.concatenate((in_data, sample_protein), 1)
@@ -96,8 +115,9 @@ class DataloaderWithoutLabel(data.Dataset):
             return in_data
 
         else:
-            sample = np.array(self.data[index].todense())
-            in_data = (sample>0).astype(np.float)  # binarize data
+            in_data = np.array(self.data[index].todense())
+            if self.config.binarize:
+                in_data = (in_data>0).astype(np.float)  # binarize data
             if self.proteins is not None:
                 sample_protein = np.array(self.proteins[index].todense())
                 in_data = np.concatenate((in_data, sample_protein), 1)
@@ -122,13 +142,13 @@ class PrepareDataloader():
         train_rna_loaders = []
         if len(config.rna_paths) == len(config.rna_protein_paths):
             for rna_path, label_path, rna_protein_path in zip(config.rna_paths, config.rna_labels, config.rna_protein_paths):    
-                trainset = Dataloader(True, rna_path, label_path, rna_protein_path)
+                trainset = Dataloader(True, rna_path, label_path, rna_protein_path, config = config)
                 trainloader = torch.utils.data.DataLoader(trainset, batch_size=
                                 config.batch_size, shuffle=True, **kwargs)                        
                 train_rna_loaders.append(trainloader)
         else:
             for rna_path, label_path in zip(config.rna_paths, config.rna_labels):    
-                trainset = Dataloader(True, rna_path, label_path)
+                trainset = Dataloader(True, rna_path, label_path, config = config)
                 trainloader = torch.utils.data.DataLoader(trainset, batch_size=
                                 config.batch_size, shuffle=True, **kwargs)                        
                 train_rna_loaders.append(trainloader)
@@ -137,13 +157,13 @@ class PrepareDataloader():
         test_rna_loaders = []
         if len(config.rna_paths) == len(config.rna_protein_paths):
             for rna_path, label_path, rna_protein_path in zip(config.rna_paths, config.rna_labels, config.rna_protein_paths):            
-                trainset = Dataloader(False, rna_path, label_path, rna_protein_path)
+                trainset = Dataloader(False, rna_path, label_path, rna_protein_path, config = config)
                 trainloader = torch.utils.data.DataLoader(trainset, batch_size=
                                 config.batch_size, shuffle=False, **kwargs)                        
                 test_rna_loaders.append(trainloader)
         else:
             for rna_path, label_path in zip(config.rna_paths, config.rna_labels):            
-                trainset = Dataloader(False, rna_path, label_path)
+                trainset = Dataloader(False, rna_path, label_path, config = config)
                 trainloader = torch.utils.data.DataLoader(trainset, batch_size=
                                 config.batch_size, shuffle=False, **kwargs)                        
                 test_rna_loaders.append(trainloader)
@@ -154,7 +174,7 @@ class PrepareDataloader():
         if len(config.atac_paths) == len(config.atac_protein_paths):
             for i, (atac_path, atac_protein_path) in enumerate(zip(config.atac_paths, config.atac_protein_paths)):                    
                 pseudo_label_path = './output/' + os.path.basename(config.atac_paths[i]).split('.')[0] + '_knn_predictions.txt'
-                trainset = Dataloader(True, atac_path, pseudo_label_path, atac_protein_path)
+                trainset = Dataloader(True, atac_path, pseudo_label_path, atac_protein_path, config = config)
                 self.num_of_atac += len(trainset)
                 
                 trainloader = torch.utils.data.DataLoader(trainset, batch_size=
@@ -163,7 +183,7 @@ class PrepareDataloader():
         else:
             for i, atac_path in enumerate(config.atac_paths):    
                 pseudo_label_path = './output/' + os.path.basename(config.atac_paths[i]).split('.')[0] + '_knn_predictions.txt'
-                trainset = Dataloader(True, atac_path, pseudo_label_path)
+                trainset = Dataloader(True, atac_path, pseudo_label_path, config = config)
                 self.num_of_atac += len(trainset)
                 
                 trainloader = torch.utils.data.DataLoader(trainset, batch_size=
@@ -174,14 +194,14 @@ class PrepareDataloader():
         if len(config.atac_paths) == len(config.atac_protein_paths):
             for i, (atac_path, atac_protein_path) in enumerate(zip(config.atac_paths, config.atac_protein_paths)):    
                 pseudo_label_path = './output/' + os.path.basename(config.atac_paths[i]).split('.')[0] + '_knn_predictions.txt'
-                trainset = Dataloader(False, atac_path, pseudo_label_path, atac_protein_path)
+                trainset = Dataloader(False, atac_path, pseudo_label_path, atac_protein_path, config = config)
                 trainloader = torch.utils.data.DataLoader(trainset, batch_size=
                                 config.batch_size, shuffle=False, **kwargs)                        
                 test_atac_loaders.append(trainloader)
         else:
             for i, atac_path in enumerate(config.atac_paths):    
                 pseudo_label_path = './output/' + os.path.basename(config.atac_paths[i]).split('.')[0] + '_knn_predictions.txt'
-                trainset = Dataloader(False, atac_path, pseudo_label_path)
+                trainset = Dataloader(False, atac_path, pseudo_label_path, config = config)
                 trainloader = torch.utils.data.DataLoader(trainset, batch_size=
                                 config.batch_size, shuffle=False, **kwargs)                        
                 test_atac_loaders.append(trainloader)
